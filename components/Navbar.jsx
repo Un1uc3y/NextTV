@@ -8,6 +8,7 @@ import { usePlayHistoryStore } from "@/store/usePlayHistoryStore";
 import { useFavoritesStore } from "@/store/useFavoritesStore";
 import { useSearchScrollStore } from "@/store/useSearchScrollStore";
 import Image from "next/image";
+import { ThemeSwitcher } from "@/components/ThemeSwitcher";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import {
@@ -176,6 +177,8 @@ export function Navbar() {
                 viewBox="0 0 24 24"
               />
             </Link>
+
+            <ThemeSwitcher />
 
             {/* 以下入口在手机端移到底部导航栏 */}
             <Link

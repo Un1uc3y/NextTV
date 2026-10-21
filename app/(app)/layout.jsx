@@ -1,4 +1,5 @@
 import "../globals.css";
+import { ThemeInit } from "@/components/ThemeInit";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { Inter } from "next/font/google";
@@ -40,6 +41,7 @@ export default function RootLayout({ children }) {
       className={`${inter.className} antialiased`}
       data-scroll-behavior="smooth"
     >
+      <head><ThemeInit /></head>
       <body className="bg-background-light text-gray-900 min-h-dvh flex flex-col pb-mobile-nav selection:bg-primary selection:text-white">
         <Navbar />
         <main className="flex-1 flex flex-col items-center w-full px-4 md:px-8 pb-12">
