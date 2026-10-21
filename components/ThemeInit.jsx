@@ -1,0 +1,3 @@
+export function ThemeInit() {
+  return <script dangerouslySetInnerHTML={{ __html: "(()=>{try{const key=\"nexttv-theme\";const media=window.matchMedia(\"(prefers-color-scheme: dark)\");const apply=()=>{const saved=localStorage.getItem(key);const mode=[\"light\",\"dark\",\"system\"].includes(saved)?saved:\"system\";const dark=mode===\"dark\"||(mode===\"system\"&&media.matches);document.documentElement.classList.toggle(\"dark\",dark);document.documentElement.style.colorScheme=dark?\"dark\":\"light\";};apply();media.addEventListener?.(\"change\",apply);window.addEventListener(\"storage\",e=>{if(e.key===key)apply();});}catch{}})();" }} />;
+}
