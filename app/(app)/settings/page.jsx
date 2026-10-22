@@ -371,7 +371,7 @@ export default function Settings() {
       if (response.ok) {
         const data = await response.json();
         if (Array.isArray(data?.list) && data.list.length > 0) {
-          status = data.list.some((item) => /\\.m3u8(?:[?#]|$)/i.test(item.vod_play_url || "")) ? "ok" : "empty";
+          status = data.list.some((item) => /\.m3u8(?:[?#]|$)/i.test(item.vod_play_url || "")) ? "ok" : "empty";
         }
       }
     } catch {

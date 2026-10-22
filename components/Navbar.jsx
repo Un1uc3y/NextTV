@@ -6,6 +6,8 @@ import { useRouter, usePathname } from "next/navigation";
 import { useMediaQuery, MOBILE_QUERY } from "@/hooks/useMediaQuery";
 import { usePlayHistoryStore } from "@/store/usePlayHistoryStore";
 import { useFavoritesStore } from "@/store/useFavoritesStore";
+import { useSettingsStore } from "@/store/useSettingsStore";
+import { isAdultContent, isAdultSource } from "@/lib/contentFilter";
 import { useSearchScrollStore } from "@/store/useSearchScrollStore";
 import Image from "next/image";
 import { ThemeSwitcher } from "@/components/ThemeSwitcher";
@@ -54,6 +56,11 @@ export function Navbar() {
 
   // 获取收藏列表
   const favorites = useFavoritesStore((state) => state.favorites);
+  const videoSources = useSettingsStore((state) => state.videoSources);
+  const adultFilterEnabled = useSettingsStore((state) => state.adultFilterEnabled);
+  const hiddenSource = (key) => adultFilterEnabled && videoSources.some((source) => source.key === key && isAdultSource(source));
+  const visibleHistory = playHistory.filter((record) => !hiddenSource(record.source));
+  const visibleFavorites = favorites.filter((item) => !hiddenSource(item.source) && (!adultFilterEnabled || !isAdultContent(item)));
   const removeFavorite = useFavoritesStore((state) => state.removeFavorite);
   const clearFavorites = useFavoritesStore((state) => state.clearFavorites);
 
@@ -115,8 +122,8 @@ export function Navbar() {
       activeTab={openPanel}
       onTabChange={setOpenPanel}
       onClose={() => setOpenPanel(null)}
-      playHistory={playHistory}
-      favorites={favorites}
+      playHistory={visibleHistory}
+      favorites={visibleFavorites}
       onHistoryClick={handleHistoryClick}
       onDeleteHistory={(record) => removePlayRecord(record.source, record.id)}
       onClearHistory={clearPlayHistory}
