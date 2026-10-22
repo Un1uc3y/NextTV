@@ -85,6 +85,7 @@ export function RandomSourceBrowser({ adultOnly = false }) {
     const controller = new AbortController();
     const timeout = setTimeout(() => {
       controller.abort();
+      setBusy(false);
       setError("请求超时，请选择其他视频源再试。");
     }, 18000);
 
