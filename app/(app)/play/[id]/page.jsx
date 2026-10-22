@@ -7,6 +7,7 @@ import { useVideoData } from "@/hooks/useVideoData";
 import { VideoPlayer } from "@/components/VideoPlayer";
 import { FavoriteButton } from "@/components/FavoriteButton";
 import { EpisodeList } from "@/components/EpisodeList";
+import { PlayerRecommendations } from "@/components/PlayerRecommendations";
 import { LoadingSpinner } from "@/components/PlayerPageLoading";
 import Image from "next/image";
 import dynamic from "next/dynamic";
@@ -293,6 +294,9 @@ export default function PlayerPage() {
           </div>
         </div>
       </div>
+
+      {/* Post-play recommendations: same-source related, newest and popularity modes. */}
+      <PlayerRecommendations key={`${source}:${id}`} videoDetail={videoDetail} sourceKey={source} />
 
       {/* Danmaku Search Modal */}
       {showDanmakuModal && (

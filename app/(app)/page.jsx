@@ -4,6 +4,7 @@ import { MovieCard } from "@/components/MovieCard";
 import { SkeletonCard } from "@/components/SkeletonCard";
 import { ContinueWatching } from "@/components/ContinueWatching";
 import { RandomSourceBrowser } from "@/components/RandomSourceBrowser";
+import { LatestSourceBrowser } from "@/components/LatestSourceBrowser";
 import { SearchBox } from "@/components/SearchBox";
 import { usePlayHistoryStore } from "@/store/usePlayHistoryStore";
 import { useSettingsStore } from "@/store/useSettingsStore";
@@ -226,6 +227,7 @@ export default function Home() {
         </div>
       </div>
 
+      {mediaType !== "adult" && <LatestSourceBrowser />}
       <RandomSourceBrowser key={mediaType === "adult" ? "adult" : "regular"} adultOnly={mediaType === "adult"} />
 
       {/* Categories - 短剧模式不显示标签 */}
