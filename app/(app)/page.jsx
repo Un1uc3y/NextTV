@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { MovieCard } from "@/components/MovieCard";
 import { SkeletonCard } from "@/components/SkeletonCard";
 import { ContinueWatching } from "@/components/ContinueWatching";
+import { RandomSourceBrowser } from "@/components/RandomSourceBrowser";
 import { SearchBox } from "@/components/SearchBox";
 import { usePlayHistoryStore } from "@/store/usePlayHistoryStore";
 import { useSettingsStore } from "@/store/useSettingsStore";
@@ -32,6 +33,11 @@ export default function Home() {
   const playHistory = usePlayHistoryStore((state) => state.playHistory);
   // 获取豆瓣代理设置
   const doubanProxy = useSettingsStore((state) => state.doubanProxy);
+  const adultFilterEnabled = useSettingsStore((state) => state.adultFilterEnabled);
+
+  useEffect(() => {
+    if (adultFilterEnabled && mediaType === "adult") setMediaType("movie");
+  }, [adultFilterEnabled, mediaType]);
 
   useEffect(() => {
     async function hydrateUserTags() {
@@ -46,6 +52,7 @@ export default function Home() {
 
   useEffect(() => {
     async function loadMovies() {
+      if (mediaType === "adult") { setLoading(false); setMovies([]); return; }
       setLoading(true);
       try {
         if (mediaType === "short") {
@@ -205,11 +212,24 @@ export default function Home() {
               短剧
             </div>
           </label>
+          {!adultFilterEnabled && (
+            <>
+              <div className="w-px h-4 bg-gray-300" aria-hidden="true" />
+              <label className="cursor-pointer relative">
+                <input className="peer sr-only" name="media-type" type="radio" value="adult" checked={mediaType === "adult"} onChange={() => handleMediaTypeChange("adult")} />
+                <div className="media-toggle-btn px-3 sm:px-5 py-2.5 sm:py-2 rounded-lg text-sm font-semibold whitespace-nowrap text-gray-500 hover:text-gray-800 peer-checked:bg-primary peer-checked:text-gray-900 peer-checked:shadow-sm peer-focus-visible:ring-2 peer-focus-visible:ring-primary flex items-center gap-1 transition-all">
+                  <span aria-hidden="true">18+</span> 成人专区
+                </div>
+              </label>
+            </>
+          )}
         </div>
       </div>
 
+      <RandomSourceBrowser key={mediaType === "adult" ? "adult" : "regular"} adultOnly={mediaType === "adult"} />
+
       {/* Categories - 短剧模式不显示标签 */}
-      {mediaType !== "short" && (
+      {mediaType !== "short" && mediaType !== "adult" && (
       <div className="w-full overflow-hidden relative group/scroll">
         <div className="flex gap-2 sm:gap-3 overflow-x-auto hide-scrollbar py-2 px-1 pr-16 snap-x" role="toolbar" aria-label="分类标签">
           <button
@@ -239,7 +259,7 @@ export default function Home() {
       )}
 
       {/* Popular Section */}
-      <div>
+      {mediaType !== "adult" && <div>
         <div className="flex items-center justify-between gap-3 mb-4 sm:mb-6">
           <h2 className="text-lg sm:text-xl font-bold text-gray-900 flex items-center gap-2 min-w-0">
             <span className="w-1 h-6 bg-primary rounded-full shrink-0" aria-hidden="true"></span>
@@ -297,10 +317,10 @@ export default function Home() {
             ))}
           </div>
         )}
-      </div>
+      </div>}
 
       {/* Continue Watching Section */}
-      {playHistory && playHistory.length > 0 && <ContinueWatching playHistory={playHistory} />}
+      {mediaType !== "adult" && playHistory && playHistory.length > 0 && <ContinueWatching playHistory={playHistory} />}
 
       {/* Tag Management Modal */}
       {showTagModal && (
