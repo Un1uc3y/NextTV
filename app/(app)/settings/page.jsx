@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useSettingsStore } from "@/store/useSettingsStore";
+import { isAdultSource } from "@/lib/contentFilter";
 import {
   MaterialSymbolsArrowUpwardRounded,
   MaterialSymbolsArrowDownwardRounded,
@@ -17,7 +18,7 @@ import {
   MaterialSymbolsChevronRightRounded,
 } from "@/components/icons";
 
-const SourceItem = ({ source, type, index, totalCount, toggleSource, onEdit, onDelete, onMoveUp, onMoveDown }) => {
+const SourceItem = ({ source, type, index, totalCount, toggleSource, onEdit, onDelete, onMoveUp, onMoveDown, onTest, testStatus }) => {
   const canMoveUp = index > 0;
   const canMoveDown = index < totalCount - 1;
 
@@ -47,11 +48,13 @@ const SourceItem = ({ source, type, index, totalCount, toggleSource, onEdit, onD
           ></label>
         </div>
         <div className="flex flex-col min-w-0 flex-1 overflow-hidden">
-          <span className="font-bold text-gray-900 text-sm md:text-lg truncate">{source.name}</span>
+          <div className="flex gap-2 items-center min-w-0"><span className="font-bold text-gray-900 text-sm md:text-lg truncate">{source.name}</span>{isAdultSource(source) && <span className="shrink-0 text-xs rounded-md bg-amber-100 text-amber-700 px-2 py-0.5">成人源</span>}</div>
           <span className="text-xs md:text-sm text-gray-500 truncate font-mono">{source.url}</span>
+          {type === "video" && <span role="status" className="text-xs text-gray-500">{testStatus === "testing" ? "检测中…" : testStatus === "ok" ? "目录可用，发现 M3U8（未验证实际播放）" : testStatus === "empty" ? "API 有响应，但未发现可播放 M3U8" : testStatus === "failed" ? "连接失败或数据格式不正确" : source.verifiedList ? "目录已响应（未验证实际播放）" : "待验证，默认关闭"}</span>}
         </div>
       </div>
       <div className="flex items-center gap-1 md:gap-2 md:pl-4 justify-end md:justify-start shrink-0">
+        {type === "video" && <button type="button" onClick={() => onTest(source)} disabled={testStatus === "testing"} className="px-2 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-xs text-gray-700 disabled:opacity-50" aria-label={`检测 ${source.name}`}>检测</button>}
         <button
           onClick={() => onMoveUp(source.id)}
           disabled={!canMoveUp}
@@ -200,6 +203,8 @@ export default function Settings() {
   const {
     videoSources,
     danmakuSources,
+    adultFilterEnabled,
+    setAdultFilterEnabled,
     toggleSource,
     addSource,
     updateSource,
@@ -220,6 +225,8 @@ export default function Settings() {
   const [editingSource, setEditingSource] = useState(null);
   const [searchVideo, setSearchVideo] = useState("");
   const [searchDanmaku, setSearchDanmaku] = useState("");
+  const [sourceChecks, setSourceChecks] = useState({});
+  const [checkingAll, setCheckingAll] = useState(false);
 
   // Form state for video sources
   const [videoForm, setVideoForm] = useState({
@@ -227,6 +234,7 @@ export default function Settings() {
     key: "",
     url: "",
     description: "",
+    adult: false,
   });
 
   // Form state for danmaku sources
@@ -244,10 +252,11 @@ export default function Settings() {
         key: source.key || "",
         url: source.url || "",
         description: source.description || "",
+        adult: isAdultSource(source),
       });
     } else {
       setEditingSource(null);
-      setVideoForm({ name: "", key: "", url: "", description: "" });
+      setVideoForm({ name: "", key: "", url: "", description: "", adult: false });
     }
     setShowVideoModal(true);
   };
@@ -280,7 +289,7 @@ export default function Settings() {
       addSource(videoForm, "video");
     }
     setShowVideoModal(false);
-    setVideoForm({ name: "", key: "", url: "", description: "" });
+    setVideoForm({ name: "", key: "", url: "", description: "", adult: false });
     setEditingSource(null);
   };
 
@@ -343,8 +352,48 @@ export default function Settings() {
     input.click();
   };
 
-  // Filter sources based on search
-  const filteredVideoSources = videoSources.filter((source) => source.name.toLowerCase().includes(searchVideo.toLowerCase()) || source.url.toLowerCase().includes(searchVideo.toLowerCase()));
+  // Hide adult source names and endpoints until the user explicitly turns the filter off.
+  const filteredVideoSources = videoSources.filter((source) =>
+    (!adultFilterEnabled || !isAdultSource(source)) &&
+    (source.name.toLowerCase().includes(searchVideo.toLowerCase()) || source.url.toLowerCase().includes(searchVideo.toLowerCase()))
+  );
+
+  // A catalog test does not verify each stream, nor does it toggle user source preferences.
+  const testVideoSource = async (source) => {
+    setSourceChecks((current) => ({ ...current, [source.id]: "testing" }));
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 9000);
+    let status = "failed";
+    try {
+      const separator = source.url.includes("?") ? "&" : "?";
+      const testUrl = `${source.url}${separator}ac=detail&pg=1`;
+      const response = await fetch(`/api/detail?apiUrl=${encodeURIComponent(testUrl)}`, { signal: controller.signal });
+      if (response.ok) {
+        const data = await response.json();
+        if (Array.isArray(data?.list) && data.list.length > 0) {
+          status = data.list.some((item) => /\\.m3u8(?:[?#]|$)/i.test(item.vod_play_url || "")) ? "ok" : "empty";
+        }
+      }
+    } catch {
+      status = "failed";
+    } finally {
+      clearTimeout(timeout);
+      setSourceChecks((current) => ({ ...current, [source.id]: status }));
+    }
+    return status;
+  };
+
+  const testVisibleSources = async () => {
+    if (checkingAll) return;
+    setCheckingAll(true);
+    try {
+      for (let i = 0; i < filteredVideoSources.length; i += 4) {
+        await Promise.all(filteredVideoSources.slice(i, i + 4).map(testVideoSource));
+      }
+    } finally {
+      setCheckingAll(false);
+    }
+  };
 
   const filteredDanmakuSources = danmakuSources.filter((source) => source.name.toLowerCase().includes(searchDanmaku.toLowerCase()) || source.url.toLowerCase().includes(searchDanmaku.toLowerCase()));
 
@@ -362,6 +411,21 @@ export default function Settings() {
 
   return (
     <div className="w-full max-w-5xl mx-auto">
+      {/* Adult source filtering: enabled by default and persisted locally. */}
+      <section className="bg-white rounded-2xl shadow-soft p-4 md:p-6 mt-6 border border-gray-100">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-bold text-gray-900">成人内容过滤</h2>
+            <p className="text-sm text-gray-500 mt-1">开启后隐藏成人来源与已识别的成人分类内容；默认开启。关闭后可查看、检测与手动启用成人源。</p>
+            <p className="text-xs text-gray-500 mt-1">这是浏览偏好过滤，不是家长控制；第三方来源的内容分类可能不准确。</p>
+          </div>
+          <label className="inline-flex items-center gap-3 shrink-0 cursor-pointer">
+            <span className="text-sm text-gray-700">{adultFilterEnabled ? "已过滤" : "允许成人内容"}</span>
+            <input type="checkbox" role="switch" aria-label="成人内容过滤" aria-checked={adultFilterEnabled} checked={adultFilterEnabled} onChange={(event) => setAdultFilterEnabled(event.target.checked)} className="size-5 accent-yellow-500 cursor-pointer" />
+          </label>
+        </div>
+      </section>
+
       {/* Video Sources */}
       <section className="bg-white rounded-2xl shadow-soft p-4 md:p-8 mt-6 border border-gray-100">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-2">
@@ -370,6 +434,7 @@ export default function Settings() {
             <p className="text-gray-500 mt-1">管理视频来源，调整优先级和启用状态</p>
           </div>
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
+            <button type="button" onClick={testVisibleSources} disabled={checkingAll} className="min-h-[44px] px-4 py-2.5 text-sm font-medium rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50">{checkingAll ? "检测中…" : "检测当前列表"}</button>
             <button
               onClick={() => resetToDefaults("video")}
               className="min-h-[44px] px-4 py-2.5 text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:text-gray-900 transition-colors shadow-sm cursor-pointer"
@@ -406,6 +471,8 @@ export default function Settings() {
               index={index}
               totalCount={filteredVideoSources.length}
               toggleSource={toggleSource}
+              onTest={testVideoSource}
+              testStatus={sourceChecks[source.id]}
               onEdit={openVideoModal}
               onDelete={(id) => handleDelete(id, "video")}
               onMoveUp={(id) => moveSource(id, "up", "video")}
@@ -578,6 +645,10 @@ export default function Settings() {
               onChange={(e) => setVideoForm({ ...videoForm, description: e.target.value })}
             />
           </div>
+          <label className="flex items-center gap-2 text-sm text-gray-700">
+            <input type="checkbox" checked={videoForm.adult} onChange={(event) => setVideoForm({ ...videoForm, adult: event.target.checked })} className="size-4 accent-yellow-500" />
+            标记为成人源（受成人内容过滤开关控制）
+          </label>
           <div className="flex gap-3 pt-4">
             <button
               type="button"

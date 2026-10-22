@@ -40,7 +40,7 @@ export default function SourceBrowsePage() {
     }
 
     resetSourceView();
-  }, [activeSourceId]);
+  }, [activeSourceId, adultFilterEnabled]);
 
   // Fetch categories and total info when source changes
   useEffect(() => {
