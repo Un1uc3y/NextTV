@@ -88,8 +88,9 @@ export function PlayerRecommendations({ videoDetail, sourceKey }) {
           const categorized = await loadCatalog(source.url, {
             page: 1, categoryId: selectedCategory, signal: controller.signal,
           });
-          collected = toProviderMovies(categorized.list, source, adultFilterEnabled);
-          if (Number(categorized.pagecount) > 1) {
+          const categorizedItems = toProviderMovies(categorized.list, source, adultFilterEnabled);
+          if (categorizedItems.length) collected = categorizedItems;
+          if (categorizedItems.length && Number(categorized.pagecount) > 1) {
             const page = getAnotherPage(categorized.pagecount, visited);
             if (page > 1) {
               const extra = await loadCatalog(source.url, { page, categoryId: selectedCategory, signal: controller.signal });
