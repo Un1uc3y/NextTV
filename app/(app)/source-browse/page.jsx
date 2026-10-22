@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useSettingsStore } from "@/store/useSettingsStore";
+import { getEnabledVideoSources, isAdultContent, isAdultCategory } from "@/lib/contentFilter";
 import { MovieCard } from "@/components/MovieCard";
 import { Pagination } from "@/components/Pagination";
 import { 
@@ -12,7 +13,8 @@ import {
 
 export default function SourceBrowsePage() {
   const videoSources = useSettingsStore((state) => state.videoSources);
-  const activeSources = useMemo(() => videoSources.filter(s => s.enabled), [videoSources]);
+  const adultFilterEnabled = useSettingsStore((state) => state.adultFilterEnabled);
+  const activeSources = useMemo(() => getEnabledVideoSources(videoSources, adultFilterEnabled), [videoSources, adultFilterEnabled]);
 
   const [selectedSourceId, setSelectedSourceId] = useState(null);
   const [categories, setCategories] = useState([]);
@@ -53,7 +55,7 @@ export default function SourceBrowsePage() {
         const data = await response.json();
         
         if (data.class) {
-          setCategories([{ type_id: "all", type_name: "首页" }, ...data.class]);
+          setCategories([{ type_id: "all", type_name: "首页" }, ...data.class.filter((category) => !adultFilterEnabled || !isAdultCategory(category))]);
         }
         if (data.total) {
           setTotalVideos(data.total);
@@ -68,7 +70,7 @@ export default function SourceBrowsePage() {
     fetchSourceInfo();
     
     return () => controller.abort();
-  }, [activeSource?.url]);
+  }, [activeSource?.url, adultFilterEnabled]);
 
   // Fetch videos when source, category, or page changes
   useEffect(() => {
@@ -89,7 +91,7 @@ export default function SourceBrowsePage() {
         const data = await response.json();
         
         if (data.list) {
-          setVideos(data.list);
+          setVideos(adultFilterEnabled ? data.list.filter((video) => !isAdultContent(video)) : data.list);
         } else {
           setVideos([]);
         }
@@ -110,7 +112,7 @@ export default function SourceBrowsePage() {
     fetchVideos();
 
     return () => controller.abort();
-  }, [activeSource?.url, activeCategoryId, page]);
+  }, [activeSource?.url, activeCategoryId, page, adultFilterEnabled]);
 
   return (
     <div className="w-full min-h-[calc(100vh-64px)] bg-gray-50 flex flex-col">
