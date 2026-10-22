@@ -9,6 +9,7 @@ import { Pagination } from "@/components/Pagination";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { useSearchScrollStore } from "@/store/useSearchScrollStore";
 import { searchVideos } from "@/lib/cmsApi";
+import { getEnabledVideoSources, isAdultContent } from "@/lib/contentFilter";
 import {
   MaterialSymbolsSearchRounded,
   MaterialSymbolsGridViewOutlineRounded,
@@ -28,6 +29,7 @@ export default function SearchContent() {
   const [mediaType, setMediaType] = useState("all"); // 'all', 'movie', 'tv'
   const [pageCount, setPageCount] = useState(1);
   const videoSources = useSettingsStore((state) => state.videoSources);
+  const adultFilterEnabled = useSettingsStore((state) => state.adultFilterEnabled);
   const saveScrollPosition = useSearchScrollStore((state) => state.saveScrollPosition);
   const restoreScrollPosition = useSearchScrollStore((state) => state.restoreScrollPosition);
   const clearScrollPosition = useSearchScrollStore((state) => state.clearScrollPosition);
@@ -36,7 +38,7 @@ export default function SearchContent() {
   const restoreSavedScrollPosition = useEffectEvent(() => restoreScrollPosition());
 
   // 只显示已激活的源
-  const enabledSources = videoSources.filter((s) => s.enabled);
+  const enabledSources = getEnabledVideoSources(videoSources, adultFilterEnabled);
   // 稳定的依赖值，避免 Zustand hydration 引用变化触发重复请求
   const enabledSourceKeys = enabledSources.map((s) => s.key).join(",");
   // 从 URL 参数读取源过滤，默认为第一个激活源
@@ -107,6 +109,7 @@ export default function SearchContent() {
           getCurrentVideoSources(),
           currentPage,
           sourceFilter || undefined,
+          useSettingsStore.getState().adultFilterEnabled,
         );
         setResults(searchData.results);
         setPageCount(searchData.pageCount);
@@ -133,7 +136,7 @@ export default function SearchContent() {
     }
 
     performSearch();
-  }, [query, enabledSourceKeys, currentPage, sourceFilter]);
+  }, [query, enabledSourceKeys, currentPage, sourceFilter, adultFilterEnabled]);
 
   // 根据媒体类型和视频源过滤结果
   const filteredResults = results.filter((result) => {
@@ -150,7 +153,7 @@ export default function SearchContent() {
     // 视频源筛选
     const matchSource = sourceFilter ? result.source === sourceFilter : true;
 
-    return matchMediaType && matchSource;
+    return matchMediaType && matchSource && (!adultFilterEnabled || !isAdultContent(result));
   });
 
   // Render content based on search state - clearer than nested ternaries

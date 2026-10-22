@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { formatTimeRemaining } from "@/lib/util";
 import { useSettingsStore } from "@/store/useSettingsStore";
+import { isAdultSource } from "@/lib/contentFilter";
 import { useEffect, useMemo, useState } from "react";
 import { MaterialSymbolsPlayArrowRounded } from "@/components/icons";
 
@@ -12,11 +13,13 @@ const upgradeCache = new Map();
 export function ContinueWatching({ playHistory }) {
   const router = useRouter();
   const videoSources = useSettingsStore((state) => state.videoSources);
+  const adultFilterEnabled = useSettingsStore((state) => state.adultFilterEnabled);
+  const visibleHistory = useMemo(() => (playHistory || []).filter((record) => !adultFilterEnabled || !videoSources.some((source) => source.key === record.source && isAdultSource(source))), [playHistory, adultFilterEnabled, videoSources]);
   const [updatedEpisodes, setUpdatedEpisodes] = useState({});
 
   const recentHistory = useMemo(
-    () => (playHistory || []).slice(0, 6),
-    [playHistory],
+    () => visibleHistory.slice(0, 6),
+    [visibleHistory],
   );
   const historyDependencyKey = useMemo(
     () =>
@@ -111,7 +114,7 @@ export function ContinueWatching({ playHistory }) {
     };
   }, [recentHistory, videoSources, historyDependencyKey, sourceUrlDependencyKey]);
 
-  if (!playHistory || playHistory.length === 0) {
+  if (recentHistory.length === 0) {
     return null;
   }
 

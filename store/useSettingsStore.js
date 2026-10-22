@@ -4,11 +4,30 @@ import {create} from "zustand";
 import {persist} from "zustand/middleware";
 import {DEFAULT_VIDEO_SOURCES, DEFAULT_DANMAKU_SOURCES} from "../lib/constants";
 
+const mergeNewBuiltInSources = (existing = []) => {
+  const sources = Array.isArray(existing) ? existing : [];
+  const byIdentity = (source) => DEFAULT_VIDEO_SOURCES.find((item) => item.key === source.key || item.url === source.url);
+  const hydrated = sources.map((source) => ({
+    ...source,
+    adult: source.adult === true || byIdentity(source)?.adult === true,
+  }));
+  const seenKeys = new Set(hydrated.map((source) => source.key));
+  const seenUrls = new Set(hydrated.map((source) => source.url));
+  for (const builtIn of DEFAULT_VIDEO_SOURCES) {
+    if (!seenKeys.has(builtIn.key) && !seenUrls.has(builtIn.url)) {
+      hydrated.push(builtIn);
+    }
+  }
+  return hydrated;
+};
+
 export const useSettingsStore = create(
   persist(
     (set, get) => ({
       videoSources: DEFAULT_VIDEO_SOURCES,
       danmakuSources: DEFAULT_DANMAKU_SOURCES,
+      adultFilterEnabled: true,
+      setAdultFilterEnabled: (enabled) => set({adultFilterEnabled: Boolean(enabled)}),
 
       // 播放器配置
       blockAdEnabled: false,
@@ -138,7 +157,8 @@ export const useSettingsStore = create(
                 key: source.key || source.Key || "",
                 url: source.url || source.URL || "",
                 description: source.description || source.Description || "",
-                enabled: true,
+                enabled: source.enabled !== false,
+                adult: source.adult === true || source.isAdult === true,
                 type: "video",
               }))
               .filter((s) => s.name && s.url);
@@ -172,6 +192,12 @@ export const useSettingsStore = create(
     }),
     {
       name: "nexttv-settings",
+      version: 1,
+      migrate: (persistedState) => ({
+        ...persistedState,
+        videoSources: mergeNewBuiltInSources(persistedState?.videoSources),
+        adultFilterEnabled: persistedState?.adultFilterEnabled ?? true,
+      }),
     },
   ),
 );
